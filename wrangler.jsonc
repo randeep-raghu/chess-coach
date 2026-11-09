@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "chess-coach",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "routes": [{ "pattern": "onlinechesscoach.app", "custom_domain": true }],
+  "vars": {
+    "GEMINI_MODEL": "gemini-3.5-flash-lite",
+    "GROQ_MODEL": "openai/gpt-oss-20b"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "chess-coach",
+      // Replaced with the real ID when the production database is created at deployment.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  }
+}

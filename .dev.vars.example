@@ -1,0 +1,7 @@
+GEMINI_API_KEY=
+GROQ_API_KEY=
+OPENROUTER_API_KEY=
+# Optional: any model ID ending in :free
+OPENROUTER_MODEL=
+# Any long random string
+RATE_LIMIT_SALT=

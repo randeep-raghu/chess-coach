@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+
+  deploy:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Only one deploy at a time, and a newer push replaces a waiting one.
+    concurrency: deploy
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch private coach content
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.CONTENT_REPO }}
+          token: ${{ secrets.CONTENT_REPO_TOKEN }}
+          path: content-private
+      # The site must never go live on the sample coach by accident.
+      - name: Require private content
+        run: test -f content-private/coach/index.tsx && test -f content-private/explain/index.ts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Apply database migrations
+        run: npx wrangler d1 migrations apply chess-coach --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Deploy
+        run: npx wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

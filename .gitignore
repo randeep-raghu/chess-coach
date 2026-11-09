@@ -1,0 +1,26 @@
+# Dependencies and build output
+node_modules/
+dist/
+public/engine/
+coverage/
+*.tsbuildinfo
+
+# Local Worker state and secrets
+.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+
+# Private: never publish these
+*.docx
+~$*
+content-private/
+
+# Editor and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

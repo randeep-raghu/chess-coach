@@ -1,0 +1,44 @@
+Chess Coach
+Licensed under GPL-3.0-or-later. See LICENSE.
+
+Coach personas, principle cards, character names and character art are not
+covered by that license. All rights reserved. The sample coach in
+content-sample/ is covered by it.
+
+Third-party components
+----------------------
+
+chessground and its cburnett piece set: GPL-3.0-or-later (lichess-org/chessground)
+chess.js: BSD-2-Clause (jhlywa/chess.js)
+Stockfish 19, lite single-threaded build: GPL-3.0
+  Source: https://github.com/nmrugg/stockfish.js and
+  https://github.com/official-stockfish/Stockfish
+Fraunces and Inter fonts: SIL Open Font License 1.1, through Fontsource
+
+Adapted code
+------------
+
+src/chess/moves.ts adapts board helpers from lichess-mcp
+(https://github.com/karayaman/lichess-mcp), under this license:
+
+MIT License
+
+Copyright (c) 2025 Alper Karayaman
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
