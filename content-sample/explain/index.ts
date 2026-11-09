@@ -2,7 +2,7 @@ import type { CoachContent } from "../../shared/coachContent";
 
 /** Plain stand-in content so the public repo runs without the private cards and personas. */
 export const content: CoachContent = {
-  version: "sample-1",
+  version: "sample-2",
   personas: [
     {
       id: "default",
@@ -37,6 +37,20 @@ export const content: CoachContent = {
       phase: ["opening", "middlegame", "endgame"],
       principle: "When nothing is hanging, improve your worst-placed piece.",
       weight: 1,
+    },
+    {
+      id: "pawn-structure",
+      tags: ["doubled_pawns", "isolated_pawn", "passed_pawn"],
+      phase: ["opening", "middlegame", "endgame"],
+      principle: "Pawn moves are permanent, so think about the structure they leave behind.",
+      weight: 2,
+    },
+    {
+      id: "piece-play",
+      tags: ["development", "piece_activity", "open_file", "center_control", "king_safety"],
+      phase: ["opening", "middlegame", "endgame"],
+      principle: "Put your pieces where they have the most scope, and keep your king sheltered.",
+      weight: 2,
     },
   ],
 };

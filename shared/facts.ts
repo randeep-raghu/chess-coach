@@ -12,7 +12,21 @@ export type Motif =
   | "missed_fork"
   | "missed_material_win";
 
-export type PieceName = "pawn" | "knight" | "bishop" | "rook" | "queen" | "king";
+/** Positional differences between the played line and the best line, most important first. */
+export const POSITIONAL_TAGS = [
+  "king_safety",
+  "passed_pawn",
+  "development",
+  "doubled_pawns",
+  "isolated_pawn",
+  "open_file",
+  "center_control",
+  "piece_activity",
+] as const;
+
+export type PositionalTag = (typeof POSITIONAL_TAGS)[number];
+
+export type PieceName ="pawn" | "knight" | "bishop" | "rook" | "queen" | "king";
 
 export interface PieceOnSquare {
   piece: PieceName;
@@ -48,7 +62,8 @@ export interface ChessFacts {
   type: MistakeType;
   motifs: Motif[];
   details: FactDetails;
-  positionalTags: never[];
+  /** Only set for positional mistakes, and recomputed by the server from the lines. */
+  positionalTags: PositionalTag[];
   phase: Phase;
   opening?: string;
   /** Material balance in pawn units from the user's side, before the played move. */

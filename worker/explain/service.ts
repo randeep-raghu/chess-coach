@@ -107,7 +107,7 @@ export async function explain(raw: unknown, deps: ExplainDeps): Promise<ExplainR
       return { status: 429, body: { error: "Too many explanations right now" } };
     }
 
-    const text = await generateChecked(buildPrompt(facts, persona, deps.content), facts, knowledge, deps.providers);
+    const text = await generateChecked(buildPrompt(facts, knowledge, persona, deps.content), facts, knowledge, deps.providers);
     if (!text) return template;
     await deps.store.putExplanation(cacheKey, text, contentVersion);
     return { status: 200, body: { text, source: "llm" } };

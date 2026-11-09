@@ -7,6 +7,7 @@ import type {
   PieceName,
   PieceOnSquare,
 } from "../../shared/facts";
+import { positionalFindings } from "../../shared/positional";
 import { playUci, type Color } from "../chess/moves";
 import type { Engine } from "../engine/stockfish";
 import type { EngineResult, EngineScore } from "../engine/uci";
@@ -197,21 +198,26 @@ export function extractFacts(inputs: FactInputs): ChessFacts {
     }
   }
 
-  return {
+  const lines = {
     fen,
     color,
-    moveNumber: moment.moveNumber,
     playedMove: played.san,
-    bestMove: best.san,
     punishingLine: punishing.moves.map((move) => move.san),
     bestLine: [best.san, ...continuation.moves.map((move) => move.san)],
+    phase,
+  };
+  const type = motifs.length > 0 ? "tactical" : "positional";
+  return {
+    ...lines,
+    moveNumber: moment.moveNumber,
+    bestMove: best.san,
     winChanceBefore: moment.winChanceBefore,
     winChanceAfter: moment.winChanceAfter,
-    type: motifs.length > 0 ? "tactical" : "positional",
+    type,
     motifs,
     details,
-    positionalTags: [],
-    phase,
+    // A tactic explains itself, so only quiet mistakes get positional tags.
+    positionalTags: type === "positional" ? positionalFindings(lines).map((finding) => finding.tag) : [],
     opening,
     materialBefore,
     materialAfter,

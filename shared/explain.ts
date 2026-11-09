@@ -1,5 +1,6 @@
 import { z } from "zod";
-import type { ChessFacts } from "./facts";
+import { POSITIONAL_TAGS, type ChessFacts } from "./facts";
+import { MAX_POSITIONAL_TAGS } from "./positional";
 
 export const OPENING_PATTERN = /^[\p{L}\p{N} '’:,.()/#-]{1,80}$/u;
 
@@ -46,8 +47,7 @@ const factsSchema = z.strictObject({
     materialLost: materialSwing.optional(),
     materialMissed: materialSwing.optional(),
   }),
-  // No positional tags are extracted yet, so none are accepted.
-  positionalTags: z.array(z.never()).max(0),
+  positionalTags: z.array(z.enum(POSITIONAL_TAGS)).max(MAX_POSITIONAL_TAGS),
   phase: z.enum(["opening", "middlegame", "endgame"]),
   opening: z.string().regex(OPENING_PATTERN).optional(),
   materialBefore: material,

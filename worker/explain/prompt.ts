@@ -1,11 +1,12 @@
 import { Chess } from "chess.js";
 import type { CoachContent, Persona, PrincipleCard } from "../../shared/coachContent";
 import type { ChessFacts } from "../../shared/facts";
+import type { FactKnowledge } from "./knowledge";
 import { MAX_SENTENCES } from "./outputCheck";
 
 export const MAX_CARDS = 3;
 /** Change this when the prompt changes, so old cached explanations stop being used. */
-export const PROMPT_VERSION = "2";
+export const PROMPT_VERSION = "3";
 
 export interface Prompt {
   system: string;
@@ -51,7 +52,7 @@ const describeTargets = (fork: NonNullable<ChessFacts["details"]["allowedFork"]>
   fork.targets.map((target) => `${target.piece} on ${target.square}`).join(", ");
 
 /** Writes what's established in words, leaving out numbers the coach mustn't repeat. */
-function describeFacts(facts: ChessFacts): string {
+function describeFacts(facts: ChessFacts, knowledge: FactKnowledge): string {
   const { details } = facts;
   const lines = [
     `The player has the ${facts.color} pieces. Phase: ${facts.phase}.`,
@@ -77,10 +78,11 @@ function describeFacts(facts: ChessFacts): string {
   }
   if (details.materialLost) lines.push("The player's move loses material along the expected continuation.");
   if (details.materialMissed) lines.push("The best move wins material along its continuation.");
+  for (const finding of knowledge.positional) lines.push(finding.description);
   return lines.join("\n");
 }
 
-export function buildPrompt(facts: ChessFacts, persona: Persona, content: CoachContent): Prompt {
+export function buildPrompt(facts: ChessFacts, knowledge: FactKnowledge, persona: Persona, content: CoachContent): Prompt {
   const cards = matchCards(facts, content.cards);
   const system = [
     persona.voice,
@@ -105,5 +107,5 @@ export function buildPrompt(facts: ChessFacts, persona: Persona, content: CoachC
     .filter(Boolean)
     .join("\n\n");
 
-  return { system, user: `Facts:\n${describeFacts(facts)}` };
+  return { system, user: `Facts:\n${describeFacts(facts, knowledge)}` };
 }
