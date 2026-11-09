@@ -12,8 +12,7 @@
     {
       "binding": "DB",
       "database_name": "chess-coach",
-      // Replaced with the real ID when the production database is created at deployment.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "c3e1fa53-06f3-4412-ab4a-967536576e0b",
       "migrations_dir": "migrations"
     }
   ],
