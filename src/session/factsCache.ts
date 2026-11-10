@@ -1,6 +1,6 @@
 import type { ChessFacts } from "../../shared/facts";
 
-const KEY_PREFIX = "chess-coach:facts:v2:";
+const KEY_PREFIX = "chess-coach:facts:v3:";
 
 type Store = Pick<Storage, "getItem" | "setItem">;
 

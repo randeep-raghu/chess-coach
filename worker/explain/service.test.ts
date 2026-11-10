@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { content } from "../../content-sample/explain";
 import type { ChessFacts } from "../../shared/facts";
+import { positionalFindings } from "../../shared/positional";
 import { templateExplanation } from "../../shared/template";
 import { matchCards, MAX_CARDS, type Prompt } from "./prompt";
 import { configuredProviders, type Provider } from "./providers";
@@ -212,6 +213,101 @@ describe("explain", () => {
 
     const reordered = { ...quiet, positionalTags: ["piece_activity", "development", "center_control"] };
     expect((await explain({ personaId: "default", facts: reordered }, deps([llm]))).status).toBe(400);
+  });
+
+  describe("threats and escapes", () => {
+    // OldMonkRises vs vhodnik, move 8: Nc4 hits the bishop on a5.
+    const VHODNIK: ChessFacts = {
+      ...FACTS,
+      fen: "rnbqk1nr/1p1p1ppp/p3p3/b7/8/2P1BN2/PP1N1PPP/R2QKB1R w KQkq - 1 8",
+      moveNumber: 8,
+      playedMove: "Bc4",
+      bestMove: "Nc4",
+      punishingLine: ["Bc7", "O-O", "Ne7"],
+      bestLine: ["Nc4", "d5", "Nxa5", "Qxa5"],
+      escapes: [["Bc7", "Nd6+", "Bxd6", "Qxd6"]],
+      type: "positional",
+      motifs: [],
+      details: {},
+      phase: "opening",
+      materialBefore: -1,
+      materialAfter: -1,
+    };
+    // Black's rook can take White's loose bishop, and White's king move ignores it.
+    const LOOSE: ChessFacts = {
+      ...FACTS,
+      fen: "1r4k1/8/8/8/8/8/1B6/6K1 w - - 0 1",
+      playedMove: "Kf1",
+      bestMove: "Bd4",
+      punishingLine: ["Rxb2"],
+      bestLine: ["Bd4"],
+      opponentThreat: ["Rxb2"],
+      motifs: ["material_loss"],
+      details: { materialLost: 3 },
+      phase: "middlegame",
+      materialBefore: -2,
+      materialAfter: -5,
+    };
+    const withTags = (facts: ChessFacts): ChessFacts => ({
+      ...facts,
+      positionalTags: facts.type === "positional" ? positionalFindings(facts).map((finding) => finding.tag) : [],
+    });
+
+    it("describes what the best move attacks and how each escape goes", async () => {
+      const llm = provider("a", "Nc4 hits the bishop on a5, and after Bc7 the check Nd6+ forces a trade.");
+      const result = await explain({ personaId: "default", facts: withTags(VHODNIK) }, deps([llm]));
+      expect(result.body).toMatchObject({ source: "llm" });
+      const user = llm.generate.mock.calls[0]![0].user;
+      expect(user).toContain("Nc4 (White's knight from d2 to c4, attacking the bishop on a5)");
+      expect(user).toContain("If Black instead answered the best move with Bc7");
+      expect(user).toContain("Nd6+ (White's knight from c4 to d6, giving check");
+    });
+
+    it("says when the player's move ignored the opponent's threat", async () => {
+      const llm = provider("a", "Black wanted Rxb2, and Kf1 let it happen.");
+      await explain({ personaId: "default", facts: LOOSE }, deps([llm]));
+      const { system, user } = llm.generate.mock.calls[0]![0];
+      expect(user).toContain("What Black wanted before the player's move");
+      expect(user).toContain("did nothing about this: Black carried it out straight away with Rxb2");
+      expect(system).toContain("ask what your opponent wants");
+    });
+
+    it("counts the threat as ignored when the other rook carries it out", async () => {
+      const llm = provider("a", "Black wanted to take on c3, and Kf2 let them.");
+      const rooks: ChessFacts = {
+        ...LOOSE,
+        fen: "2r3k1/8/8/8/8/r1P5/8/4K3 w - - 0 1",
+        playedMove: "Kf2",
+        bestMove: "Kd2",
+        punishingLine: ["Rcxc3"],
+        bestLine: ["Kd2"],
+        opponentThreat: ["Raxc3"],
+        details: { materialLost: 1 },
+        materialBefore: -9,
+        materialAfter: -10,
+      };
+      await explain({ personaId: "default", facts: rooks }, deps([llm]));
+      expect(llm.generate.mock.calls[0]![0].user).toContain("carried it out straight away with Rcxc3");
+    });
+
+    it("says when the player's move dealt with the threat", async () => {
+      const llm = provider("a", "Black wanted Rxb2, and Bd4 kept the bishop safe.");
+      const dealt: ChessFacts = { ...LOOSE, playedMove: "Bd4", bestMove: "Bc3", punishingLine: ["Kf8"], bestLine: ["Bc3"] };
+      await explain({ personaId: "default", facts: dealt }, deps([llm]));
+      expect(llm.generate.mock.calls[0]![0].user).toContain("The player's move dealt with this threat.");
+    });
+
+    it.each([
+      ["an escape that doesn't move the attacked piece", withTags({ ...VHODNIK, escapes: [["e5", "Nxa5"]] })],
+      ["the same escape twice", withTags({ ...VHODNIK, escapes: [["Bc7"], ["Bc7"]] })],
+      ["the engine's own reply as an escape", { ...LOOSE, bestLine: ["Bd4", "Kf8"], escapes: [["Kf8"]] }],
+      ["a threat that wins nothing", { ...LOOSE, opponentThreat: ["Kf8"] }],
+      ["a threat that's an illegal move", { ...LOOSE, opponentThreat: ["Rxb1"] }],
+    ])("rejects %s", async (_name, facts) => {
+      const llm = provider("a", GOOD);
+      expect((await explain({ personaId: "default", facts }, deps([llm]))).status).toBe(400);
+      expect(llm.generate).not.toHaveBeenCalled();
+    });
   });
 
   it("doesn't share a cached answer between different facts", async () => {

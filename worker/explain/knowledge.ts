@@ -1,5 +1,6 @@
 import { Chess, type Move } from "chess.js";
 import type { ChessFacts, PieceName } from "../../shared/facts";
+import { escapeMoves, lineWins, passedFen } from "../../shared/lineFacts";
 import { findingsForMoves, type PositionalFinding } from "../../shared/positional";
 
 const NAME: Record<string, PieceName> = {
@@ -22,6 +23,8 @@ export interface FactKnowledge {
   captured: Set<PieceName>;
   /** The positional tags, recomputed here and described for the prompt. */
   positional: PositionalFinding[];
+  /** The lines as played out here, so they can be described without replaying them. */
+  lines: { played: Move[]; best: Move[]; threat: Move[]; escapes: Move[][] };
 }
 
 export const normalizeSan = (san: string) => san.replace(/[+#]+$/, "").replaceAll("0", "O");
@@ -76,11 +79,34 @@ export function buildKnowledge(facts: ChessFacts): FactKnowledge | null {
     piecesOn: new Map(),
     captured: new Set(),
     positional: [],
+    lines: { played: [], best: [], threat: [], escapes: [] },
   };
   record(knowledge, start);
   const playedLine = walkLine(facts.fen, [facts.playedMove, ...facts.punishingLine], knowledge);
   const bestLine = playedLine && walkLine(facts.fen, facts.bestLine, knowledge);
   if (!playedLine || !bestLine) return null;
+  knowledge.lines.played = playedLine;
+  knowledge.lines.best = bestLine;
+
+  if (facts.opponentThreat) {
+    // Only a threat that really mates or wins material is worth telling the player about.
+    const passed = passedFen(facts.fen);
+    const threat = passed && walkLine(passed, facts.opponentThreat, knowledge);
+    if (!passed || !threat || !lineWins(passed, threat)) return null;
+    knowledge.lines.threat = threat;
+  }
+
+  if (facts.escapes) {
+    // Each escape must move a piece the best move attacks, and each only once.
+    const allowed = escapeMoves(bestLine[0]!, facts.bestLine[1]).map((move) => move.san);
+    const firsts = facts.escapes.map((line) => line[0]!);
+    if (firsts.some((san) => !allowed.includes(san)) || new Set(firsts).size !== firsts.length) return null;
+    for (const line of facts.escapes) {
+      const escape = walkLine(bestLine[0]!.after, line, knowledge);
+      if (!escape) return null;
+      knowledge.lines.escapes.push(escape);
+    }
+  }
 
   // The tags must be exactly what the lines show, so a made-up tag can't steer the coach.
   knowledge.positional = facts.type === "positional" ? findingsForMoves(facts, playedLine, bestLine) : [];

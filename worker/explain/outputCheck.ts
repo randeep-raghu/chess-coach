@@ -1,8 +1,8 @@
 import type { ChessFacts } from "../../shared/facts";
 import { normalizeSan, type FactKnowledge } from "./knowledge";
 
-export const MAX_SENTENCES = 3;
-const MAX_LENGTH = 600;
+export const MAX_SENTENCES = 4;
+const MAX_LENGTH = 700;
 
 const PIECE = "(king|queen|rook|bishop|knight|pawn)s?";
 const SQUARE = "([a-h][1-8])";
@@ -15,6 +15,9 @@ const PIECE_MOVES_TO = new RegExp(`\\b${PIECE}\\s+(?:to|takes|captures)\\s+(?:on
 const CAPTURE_VERB =
   "(?:win|wins|won|winning|claim\\w*|snatch\\w*|captur\\w*|take|takes|took|taken|taking|lose|loses|lost|losing|drop\\w*|grab\\w*|surrender\\w*|sacrific\\w*|hang\\w*|pocket\\w*|scoop\\w*)";
 const CAPTURE_CLAIM = new RegExp(`\\b${CAPTURE_VERB}\\s+(?:up\\s+|at\\s+|away\\s+)?(?:[\\w'’]+\\s+){0,3}?${PIECE}\\b`, "gi");
+const CAPTURE_WORD = /\b(?:captur\w*|takes?|took|taken|taking|grab\w*|snatch\w*)\b/i;
+/** Words that hand the action to someone else, as in "Bc4 lets Black take the pawn". */
+const HANDOVER_WORD = /\b(?:lets?|allow\w*|permit\w*|invit\w*|black|white|opponent|they|their|he|she|after|then)\b/i;
 const MATE_IN = /\bmate\s+in\s+(\d+|one|two|three|four|five)\b/gi;
 const MATE_WORD = /\b(?:check)?mat(?:e|es|ed|ing)\b/i;
 const CASTLING_WORD = /\bcastl\w*/i;
@@ -25,6 +28,25 @@ function sentenceCount(text: string): number {
   const cleaned = text.replace(/\.{2,}/g, " ").trim();
   const ends = cleaned.match(/[.!?]+(?=["'’”)]*(?:\s|$))/g)?.length ?? 0;
   return /[.!?]["'’”)]*$/.test(cleaned) ? ends : ends + 1;
+}
+
+/**
+ * Catches a quiet move described as capturing, like "Nc4 leaps in to capture the bishop".
+ * It reads the words after each move, up to the next move or the end of the clause.
+ */
+function findFalseCapture(text: string): string | null {
+  for (const match of text.matchAll(SAN_TOKEN)) {
+    const san = match[0];
+    if (san.includes("x") || /^[O0]/.test(san)) continue;
+    let clause = text.slice(match.index + san.length).split(/[.;,!?:]/)[0]!;
+    const nextMove = clause.search(new RegExp(SAN_TOKEN.source));
+    if (nextMove >= 0) clause = clause.slice(0, nextMove);
+    const capture = clause.search(CAPTURE_WORD);
+    if (capture >= 0 && !HANDOVER_WORD.test(clause.slice(0, capture))) {
+      return `It said ${san} captures, but ${san} isn't a capture.`;
+    }
+  }
+  return null;
 }
 
 const hasMateMove = (facts: ChessFacts) =>
@@ -44,6 +66,9 @@ export function findOutputProblem(text: string, facts: ChessFacts, knowledge: Fa
   for (const [token] of text.matchAll(SAN_TOKEN)) {
     if (!knowledge.moves.has(normalizeSan(token))) return `It mentioned ${token}, which isn't in the facts.`;
   }
+
+  const captureProblem = findFalseCapture(text);
+  if (captureProblem) return captureProblem;
 
   const withoutMoves = text.replace(SAN_TOKEN, " ");
   for (const [, square] of withoutMoves.matchAll(BARE_SQUARE)) {

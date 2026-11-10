@@ -7,6 +7,15 @@ import type {
   PieceName,
   PieceOnSquare,
 } from "../../shared/facts";
+import {
+  ESCAPE_PLIES,
+  escapeMoves,
+  lineWins,
+  MAX_ESCAPES,
+  passedFen,
+  playLine,
+  THREAT_PLIES,
+} from "../../shared/lineFacts";
 import { positionalFindings } from "../../shared/positional";
 import { playUci, type Color } from "../chess/moves";
 import type { Engine } from "../engine/stockfish";
@@ -16,6 +25,8 @@ import { ANALYSIS_DEPTH } from "./engineAnalysis";
 import type { KeyMoment } from "./moment";
 
 const MAX_LINE_PLIES = 6;
+/** The extra searches only need a short line, so they stop sooner than the main ones. */
+export const SIDE_LINE_DEPTH = 12;
 const MIN_MATERIAL_SWING = 1;
 const OPENING_UNTIL_MOVE = 10;
 const ENDGAME_AT_MOST_MAJOR_MINOR_PIECES = 6;
@@ -138,11 +149,23 @@ export interface FactInputs {
   afterPlayed: EngineResult;
   /** Engine result in the position after the best move. */
   afterBest: EngineResult;
+  /** Engine result in the position where the player passes, showing what the opponent wants. */
+  threat?: EngineResult;
+  /** Ways the opponent could move a piece the best move attacks, with the engine's answer to each. */
+  escapes?: { san: string; after: string; reply: EngineResult }[];
+}
+
+/** The opponent's best line if the player could pass, kept only when it mates or wins material. */
+function threatLine(fen: string, threat: EngineResult | undefined): string[] | undefined {
+  const passed = passedFen(fen);
+  if (!passed || !threat) return undefined;
+  const { moves } = replayLine(passed, threat.pv ?? [], THREAT_PLIES);
+  return lineWins(passed, moves) ? moves.map((move) => move.san) : undefined;
 }
 
 /** Turns a key moment and engine lines into verified facts. Deterministic and network-free. */
 export function extractFacts(inputs: FactInputs): ChessFacts {
-  const { moment, phase, opening, afterPlayed, afterBest } = inputs;
+  const { moment, phase, opening, afterPlayed, afterBest, threat } = inputs;
   const { color, played, best, fen } = moment;
 
   const punishing = replayLine(played.after, afterPlayed.pv ?? []);
@@ -206,11 +229,17 @@ export function extractFacts(inputs: FactInputs): ChessFacts {
     bestLine: [best.san, ...continuation.moves.map((move) => move.san)],
     phase,
   };
+  const opponentThreat = threatLine(fen, threat);
+  const escapes = (inputs.escapes ?? [])
+    .slice(0, MAX_ESCAPES)
+    .map(({ san, after, reply }) => [san, ...replayLine(after, reply.pv ?? [], ESCAPE_PLIES - 1).moves.map((move) => move.san)]);
   const type = motifs.length > 0 ? "tactical" : "positional";
   return {
     ...lines,
     moveNumber: moment.moveNumber,
     bestMove: best.san,
+    ...(opponentThreat && { opponentThreat }),
+    ...(escapes.length > 0 && { escapes }),
     winChanceBefore: moment.winChanceBefore,
     winChanceAfter: moment.winChanceAfter,
     type,
@@ -233,10 +262,23 @@ export async function buildFacts(
 ): Promise<ChessFacts> {
   const afterPlayed = await engine.evaluate(moment.played.after, depth);
   const afterBest = await engine.evaluate(moment.best.after, depth);
+
+  const passed = passedFen(moment.fen);
+  const threat = passed ? await engine.evaluate(passed, SIDE_LINE_DEPTH) : undefined;
+
+  const [bestMove] = playLine(moment.fen, [moment.best.san]);
+  const engineReply = afterBest.pv?.[0] ? playUci(moment.best.after, afterBest.pv[0])?.san : undefined;
+  const escapes = [];
+  for (const escape of escapeMoves(bestMove!, engineReply).slice(0, MAX_ESCAPES)) {
+    escapes.push({ san: escape.san, after: escape.after, reply: await engine.evaluate(escape.after, SIDE_LINE_DEPTH) });
+  }
+
   return extractFacts({
     moment,
     afterPlayed,
     afterBest,
+    threat,
+    escapes,
     phase: gamePhase(moment.fen, moment.ply, game.division),
     opening: game.opening?.name,
   });

@@ -2,7 +2,7 @@ import type { CoachContent } from "../../shared/coachContent";
 
 /** Plain stand-in content so the public repo runs without the private cards and personas. */
 export const content: CoachContent = {
-  version: "sample-2",
+  version: "sample-3",
   personas: [
     {
       id: "default",
@@ -51,6 +51,13 @@ export const content: CoachContent = {
       phase: ["opening", "middlegame", "endgame"],
       principle: "Put your pieces where they have the most scope, and keep your king sheltered.",
       weight: 2,
+    },
+    {
+      id: "opponent-intent",
+      tags: ["ignored_threat"],
+      phase: ["opening", "middlegame", "endgame"],
+      principle: "Before every move, ask what your opponent wants to do next, then check that your move doesn't let them do it.",
+      weight: 3,
     },
   ],
 };

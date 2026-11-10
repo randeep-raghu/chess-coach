@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChessFacts } from "../../shared/facts";
+import { positionalFindings } from "../../shared/positional";
 import { templateExplanation } from "../../shared/template";
 import { buildKnowledge } from "./knowledge";
 import { findOutputProblem } from "./outputCheck";
@@ -64,7 +65,7 @@ describe("findOutputProblem", () => {
     ["a percentage", "Re7 is about seventy percent."],
     ["a bare number", "Rc7 drops you by 2 whole pawns."],
     ["a decimal", "The score fell to 0.5 after Rc7."],
-    ["too many sentences", "Rc7 is bad. Re7 is good. Think again. Do better."],
+    ["too many sentences", "Rc7 is bad. Re7 is good. Think again. Do better. Try harder."],
   ])("rejects %s", (_name, text) => {
     expect(problem(text)).not.toBeNull();
   });
@@ -90,9 +91,20 @@ describe("findOutputProblem", () => {
     expect(problem("Rc7 allows mate in three, my friend.", facts)).not.toBeNull();
   });
 
+  it("rejects a quiet move described as capturing", () => {
+    expect(problem("Re7 would have leapt in to capture the pawn on e5.")).toContain("Re7 isn't a capture");
+    expect(problem("Rc7 takes nothing, yet it lets Nxe4 take the pawn.")).toContain("Rc7 isn't a capture");
+  });
+
+  it("allows a quiet move that hands a capture to someone else", () => {
+    expect(problem("Rc7 lets Black take the pawn on e4 with Nxe4.")).toBeNull();
+    expect(problem("After Re7, Rxe5 captures the pawn.")).toBeNull();
+  });
+
   it("accepts every kind of template the app can fall back on", () => {
     expect(problem(templateExplanation(FACTS))).toBeNull();
-    const positional: ChessFacts = { ...FACTS, type: "positional", motifs: [], details: {} };
+    const quiet: ChessFacts = { ...FACTS, type: "positional", motifs: [], details: {} };
+    const positional: ChessFacts = { ...quiet, positionalTags: positionalFindings(quiet).map((finding) => finding.tag) };
     expect(problem(templateExplanation(positional), positional)).toBeNull();
   });
 });

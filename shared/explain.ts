@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { POSITIONAL_TAGS, type ChessFacts } from "./facts";
+import { ESCAPE_PLIES, MAX_ESCAPES, THREAT_PLIES } from "./lineFacts";
 import { MAX_POSITIONAL_TAGS } from "./positional";
 
 export const OPENING_PATTERN = /^[\p{L}\p{N} '’:,.()/#-]{1,80}$/u;
@@ -22,6 +23,8 @@ const factsSchema = z.strictObject({
   bestMove: san,
   punishingLine: z.array(san).max(6),
   bestLine: z.array(san).min(1).max(6),
+  opponentThreat: z.array(san).min(1).max(THREAT_PLIES).optional(),
+  escapes: z.array(z.array(san).min(1).max(ESCAPE_PLIES)).min(1).max(MAX_ESCAPES).optional(),
   winChanceBefore: winChance,
   winChanceAfter: winChance,
   type: z.enum(["tactical", "positional"]),

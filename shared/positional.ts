@@ -1,5 +1,6 @@
 import { Chess, type Move, type PieceSymbol, type Square } from "chess.js";
-import type { ChessFacts, PieceName, PositionalTag } from "./facts";
+import type { ChessFacts, PositionalTag } from "./facts";
+import { NAME, playLine, settledFen } from "./lineFacts";
 
 /** One positional difference, described in words the coach can repeat without inventing anything. */
 export interface PositionalFinding {
@@ -30,15 +31,6 @@ const HOME_MINORS: Record<Side, { type: PieceSymbol; square: Square }[]> = {
     { type: "n", square: "g8" },
   ],
 };
-const VALUE: Record<PieceSymbol, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
-const NAME: Record<PieceSymbol, PieceName> = {
-  p: "pawn",
-  n: "knight",
-  b: "bishop",
-  r: "rook",
-  q: "queen",
-  k: "king",
-};
 
 const other = (side: Side): Side => (side === "w" ? "b" : "w");
 const fileOf = (square: Square) => square.charCodeAt(0) - 97;
@@ -63,23 +55,7 @@ const snapshot = (chess: Chess): Position => ({
   pieces: chess.board().flat().filter((cell): cell is Piece => cell !== null),
 });
 
-/**
- * The position at the end of a line. A line ending in captures that leave material
- * uneven stopped mid-exchange, so it backs up to before them, but never past the
- * line's first move. A finished exchange, like a bishop for a knight, is kept.
- */
-function settledEnd(fen: string, moves: Move[]): Position {
-  let beforeCaptures = moves.length;
-  let swing = 0;
-  while (beforeCaptures > 1 && moves[beforeCaptures - 1]!.captured) {
-    const move = moves[beforeCaptures - 1]!;
-    const promoted = move.promotion ? VALUE[move.promotion] - VALUE.p : 0;
-    swing += (move.color === "w" ? 1 : -1) * (VALUE[move.captured!] + promoted);
-    beforeCaptures -= 1;
-  }
-  const settled = swing === 0 ? moves.at(-1) : moves[beforeCaptures - 1];
-  return snapshot(new Chess(settled?.after ?? fen));
-}
+const settledEnd = (fen: string, moves: Move[]): Position => snapshot(new Chess(settledFen(fen, moves)));
 
 const squaresOf = (position: Position, side: Side, type: PieceSymbol): Square[] =>
   position.pieces.filter((piece) => piece.color === side && piece.type === type).map((piece) => piece.square);
@@ -187,11 +163,11 @@ const firstNotIn = (squares: Square[], others: Square[]) => squares.find((square
  * played line made worse. Deterministic, so the server can recompute and check the tags.
  */
 export function positionalFindings(facts: FactLines): PositionalFinding[] {
-  const replay = (line: string[]) => {
-    const chess = new Chess(facts.fen);
-    return line.map((san) => chess.move(san));
-  };
-  return findingsForMoves(facts, replay([facts.playedMove, ...facts.punishingLine]), replay(facts.bestLine));
+  return findingsForMoves(
+    facts,
+    playLine(facts.fen, [facts.playedMove, ...facts.punishingLine]),
+    playLine(facts.fen, facts.bestLine),
+  );
 }
 
 /** The same, for a caller that has already played the lines out and checked them. */

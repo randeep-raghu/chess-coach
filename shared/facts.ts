@@ -57,6 +57,16 @@ export interface ChessFacts {
   punishingLine: string[];
   /** The best move and what follows, in SAN. */
   bestLine: string[];
+  /**
+   * What the opponent threatened before the player's move: their best line if they could
+   * move twice in a row, in SAN. Only kept when it mates or wins material.
+   */
+  opponentThreat?: string[];
+  /**
+   * Other ways the opponent could answer the best move by moving a piece it attacks,
+   * each followed by the engine's reply, in SAN.
+   */
+  escapes?: string[][];
   winChanceBefore: number;
   winChanceAfter: number;
   type: MistakeType;

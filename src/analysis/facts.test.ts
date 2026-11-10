@@ -219,6 +219,34 @@ describe("extractFacts", () => {
     expect(result.punishingLine).toEqual(["e5", "Nf3"]);
   });
 
+  it("keeps the opponent's threat only when it wins something", () => {
+    const loose = "1r4k1/8/8/8/8/8/1B6/6K1 w - - 0 1";
+    const withThreat = (pv: string[]) =>
+      extractFacts({
+        moment: momentFrom(loose, "g1f1", "b2d4"),
+        phase: "middlegame",
+        afterPlayed: { bestMove: "b8b2", score: { cp: 300 }, pv: ["b8b2"] },
+        afterBest: QUIET,
+        threat: { bestMove: pv[0]!, score: { cp: 300 }, pv },
+      });
+    expect(withThreat(["b8b2", "g1f1"]).opponentThreat).toEqual(["Rxb2", "Kf1"]);
+    expect(withThreat(["g8f8"]).opponentThreat).toBeUndefined();
+  });
+
+  it("turns each escape and the engine's answer into a line", () => {
+    const fen = "rnbqk1nr/1p1p1ppp/p3p3/b7/8/2P1BN2/PP1N1PPP/R2QKB1R w KQkq - 1 8";
+    const afterBc7 = playUci(playUci(fen, "d2c4")!.after, "a5c7")!.after;
+    const result = extractFacts({
+      moment: momentFrom(fen, "f1c4", "d2c4"),
+      phase: "opening",
+      afterPlayed: QUIET,
+      afterBest: QUIET,
+      escapes: [{ san: "Bc7", after: afterBc7, reply: { bestMove: "c4d6", score: { cp: 100 }, pv: ["c4d6", "c7d6", "d1d6", "e8f8"] } }],
+    });
+    expect(result.escapes).toEqual([["Bc7", "Nd6+", "Bxd6", "Qxd6"]]);
+    expect(result.opponentThreat).toBeUndefined();
+  });
+
   it("drops illegal engine moves from the lines", () => {
     const result = facts(
       "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
